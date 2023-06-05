@@ -49,7 +49,11 @@
         "typeinfo": "cpp",
         "expected": "cpp",
         "cinttypes": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "charconv": "cpp",
+        "ctime": "cpp",
+        "format": "cpp"
     },
-    "C_Cpp.default.intelliSenseMode": "linux-gcc-x64"
+    "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+    "C_Cpp.default.compilerPath": ""
 }
