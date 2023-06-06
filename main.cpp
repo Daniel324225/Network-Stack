@@ -22,8 +22,7 @@ int main() {
 
     print_bytes(packet);
 
-    Format
-    <
+    Format<
         {"flags", 3},
         {"ofset", 8*10 + 7}
     >format{};
