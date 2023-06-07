@@ -83,6 +83,56 @@ constexpr std::size_t bits_to_bytes(std::size_t bits) {
     return bits / 8 + (bits % 8 == 0 ? 0 : 1);
 }
 
+template<std::size_t bit_begin, std::size_t bit_length>
+auto get(std::span<std::byte> bytes) {
+    static constexpr auto bit_end = bit_begin + bit_length;
+    static constexpr auto bits_in_last_byte = bit_end % 8;
+    
+    using return_t = leastN_t<bit_length>;
+
+    const auto byte_begin = bit_begin / 8;
+    const auto byte_length = bits_to_bytes(bit_end) - byte_begin;
+
+    const auto field_bytes = [&]{
+        const auto view = bytes | std::views::drop(byte_begin) | std::views::take(byte_length); 
+        if constexpr (bits_in_last_byte == 0) {
+            return view;
+        } else {
+            return
+                view 
+                | std::views::pairwise_transform(
+                    [&](auto lhs, auto rhs){
+                        return (lhs << bits_in_last_byte) | (rhs >> (8 - bits_in_last_byte));
+                    }
+                );
+        }
+    }();
+
+    return_t return_value{};
+    auto first_return_byte = reinterpret_cast<std::byte*>(&return_value) + sizeof(return_value) - bits_to_bytes(bit_length);
+
+    constexpr auto first_byte_skipped = bits_in_last_byte > bit_begin % 8;
+
+    if constexpr (first_byte_skipped) {
+        *first_return_byte |= bytes[byte_begin] >> (8 - (std::max(bit_length, bits_in_last_byte) % 8));
+    }
+
+    std::ranges::copy(
+        field_bytes,
+        first_return_byte + (first_byte_skipped ? 1 : 0)
+    );
+
+    if constexpr(bit_length % 8 != 0) {
+        *first_return_byte &= std::byte{0xFF} >> (8 - (bit_length % 8));
+    }
+
+    if constexpr(std::endian::native == std::endian::little && std::integral<return_t>) {
+        return_value = std::byteswap(return_value);
+    }
+
+    return return_value;
+}
+
 template<Field ...fields>
     requires 
     (
@@ -130,55 +180,6 @@ struct Format
         requires (contains(name))
     static leastN_t<field_length(name)> get(std::span<std::byte> bytes)
     {
-        static constexpr auto bit_begin = field_start(name);
-        static constexpr auto bit_length = field_length(name);
-        static constexpr auto bit_end = bit_begin + bit_length;
-        static constexpr auto bits_in_last_byte = bit_end % 8;
-        
-        using return_t = leastN_t<bit_length>;
-
-        const auto byte_begin = bit_begin / 8;
-        const auto byte_length = bits_to_bytes(bit_end) - byte_begin;
-
-        const auto field_bytes = [&]{
-            const auto view = bytes | std::views::drop(byte_begin) | std::views::take(byte_length); 
-            if constexpr (bits_in_last_byte == 0) {
-                return view;
-            } else {
-                //std::cout << "bits_in_last_byte: " << bits_in_last_byte << "\n";
-                return
-                    view 
-                    | std::views::pairwise_transform(
-                        [](auto lhs, auto rhs){
-                            //std::cout << std::format("{:0>8b} {:0>8b} | {:0>8b}\n", (int)lhs, (int)rhs, (int)((lhs << bits_in_last_byte) | (rhs >> (8 - bits_in_last_byte))));
-                            return (lhs << bits_in_last_byte) | (rhs >> (8 - bits_in_last_byte));
-                        }
-                    );
-            }
-        }();
-
-        return_t return_value{};
-        auto first_return_byte = reinterpret_cast<std::byte*>(&return_value) + sizeof(return_value) - bits_to_bytes(bit_length);
-
-        static constexpr auto first_byte_skipped = bits_in_last_byte > bit_begin % 8;
-
-        if constexpr (first_byte_skipped) {
-            *first_return_byte |= bytes[byte_begin] >> (8 - (bit_length % 8));
-        }
-
-        std::ranges::copy(
-            field_bytes,
-            first_return_byte + (first_byte_skipped ? 1 : 0)
-        );
-
-        if constexpr(bit_length % 8 != 0) {
-            *first_return_byte &= std::byte{0xFF} >> (8 - (bit_length % 8));
-        }
-
-        if constexpr(std::endian::native == std::endian::little && std::integral<return_t>) {
-            return_value = std::byteswap(return_value);
-        }
-
-        return return_value;
+        return ::get<field_start(name), field_length(name)>(bytes);
     }
 };

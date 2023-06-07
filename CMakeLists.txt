@@ -2,14 +2,15 @@ cmake_minimum_required(VERSION 3.20)
 
 project("TCP IP")
 
-set(EXE_NAME a.out)
-
-set(WARNINGS
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wconversion -pedantic -Werror>
-    $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+add_library(compiler_options INTERFACE)
+target_compile_features(compiler_options INTERFACE cxx_std_23)
+target_compile_options(compiler_options INTERFACE
+  $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wconversion -pedantic -Werror>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
-add_executable(${EXE_NAME} tap.cpp main.cpp bitformat.h tap.h)
+add_executable(TCP_IP main.cpp packet_format.h)
+target_link_libraries(TCP_IP PRIVATE compiler_options)
 
-target_compile_features(${EXE_NAME} PUBLIC cxx_std_23)
-target_compile_options(${EXE_NAME} PUBLIC ${WARNINGS})
+enable_testing()
+add_subdirectory(tests)

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <expected>
 #include <cstdint>
-#include "bitformat.h"
+#include "packet_format.h"
 #include <format>
 
 void print_bytes(const auto& obj) {
@@ -23,14 +23,14 @@ int main() {
     print_bytes(packet);
 
     Format<
-        {"flags", 3},
-        {"ofset", 8*10 + 7}
+        Field{"flags", 3},
+        Field{"offset", 8*10 + 7}
     >format{};
 
-    auto ofset = format.get<"ofset">(packet);
-    print_bytes(ofset);
+    auto offset = format.get<"offset">(packet);
+    print_bytes(offset);
 
     print_bytes(format.get<"flags">(packet));
 
-    //std::cout << (int)ofset << "\n";
+    //std::cout << (int)offset << "\n";
 }
