@@ -9,7 +9,7 @@ target_compile_options(compiler_options INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
-add_executable(TCP_IP main.cpp packet_format.h)
+add_executable(TCP_IP main.cpp packet.h utils.h)
 target_link_libraries(TCP_IP PRIVATE compiler_options)
 
 enable_testing()

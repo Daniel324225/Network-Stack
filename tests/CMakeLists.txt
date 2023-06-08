@@ -11,9 +11,9 @@ include(GoogleTest)
 
 macro(add_test TESTNAME)
     add_executable(${TESTNAME} ${ARGN})
-    target_link_libraries(${TESTNAME} GTest::gtest_main GTest::gmock compiler_options)
+    target_link_libraries(${TESTNAME} GTest::gtest_main compiler_options)
     target_include_directories(${TESTNAME} PRIVATE ${CMAKE_SOURCE_DIR})
     gtest_discover_tests(${TESTNAME})
 endmacro()
 
-add_test(packet_format packet_format_test.cpp)
+add_test(packet packet_test.cpp)
