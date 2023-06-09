@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string_view>
 #include <ranges>
 #include <algorithm>
@@ -62,7 +64,7 @@ namespace packet {
         constexpr auto first_byte_skipped = bit_end > first_bit;
 
         if constexpr (first_byte_skipped) {
-            *first_return_byte |= bytes.front() >> (8 - (std::max(bit_length, bit_end) % 8));
+            *first_return_byte |= bytes.front() >> (8 - bit_end);
         }
 
         std::ranges::copy(
@@ -92,7 +94,7 @@ namespace packet {
         if constexpr (std::integral<ExtendedValueType>) {
             ExtendedValueType extended_value = value;
 
-            constexpr auto first_value_byte_offset = sizeof(extended_value) - utils::bits_to_bytes(bit_length);
+            constexpr auto first_value_byte_offset = sizeof(extended_value) - utils::bits_to_bytes(first_bit + bit_length);
             const auto first_value_byte = reinterpret_cast<std::byte*>(&extended_value) + first_value_byte_offset;
 
             if constexpr(bit_length != sizeof(extended_value) * 8) {
@@ -112,7 +114,7 @@ namespace packet {
             }
 
             if constexpr(std::endian::native == std::endian::little) {
-                extended_value = std::byteswap(value);
+                extended_value = std::byteswap(extended_value);
             }
             
             std::ranges::copy_n(
@@ -120,15 +122,19 @@ namespace packet {
                 bytes.begin()
             );
         } else {
-            constexpr auto first_byte_skipped = left_shift > first_bit;
+            if constexpr (std::integral<decltype(value)> && std::endian::native == std::endian::little) {
+                value = std::byteswap(value);
+            }
+
+            constexpr auto first_byte_skipped = bit_length % 8 + left_shift > 8;
 
             auto first_value_byte = reinterpret_cast<std::byte*>(&value);
 
             if constexpr (first_byte_skipped) {
-                const auto mask = std::byte{0xFF} >> (8 - left_shift);
+                const auto mask = std::byte{0xFF} >> first_bit;
                 bytes.front() = (bytes.front() & ~mask) | ((*first_value_byte >> (8 - left_shift)) & mask);
             } else {
-                const auto mask = std::byte{0xFF} >> first_bit;
+                const auto mask = std::byte{0xFF} >> ((8 - bit_length % 8) % 8);
                 *first_value_byte &= mask;
                 *first_value_byte |= (bytes.front() >> left_shift) & ~mask;
             }
@@ -156,7 +162,7 @@ namespace packet {
 
             if constexpr(bit_end != 0) {
                 const auto mask = std::byte{0xFF} >> (8 - left_shift);
-                bytes.back() = (bytes.back() & ~mask) | (packet_bytes.back() << left_shift);
+                bytes.back() = (bytes.back() & mask) | (value_bytes.back() << left_shift);
             }
         }
     }
