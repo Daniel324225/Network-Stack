@@ -133,8 +133,8 @@ namespace packet {
             if constexpr (first_byte_skipped) {
                 const auto mask = std::byte{0xFF} >> first_bit;
                 bytes.front() = (bytes.front() & ~mask) | ((*first_value_byte >> (8 - left_shift)) & mask);
-            } else {
-                const auto mask = std::byte{0xFF} >> ((8 - bit_length % 8) % 8);
+            } else if constexpr(constexpr auto bits_in_first_value_byte = bit_length % 8; bits_in_first_value_byte != 0) {
+                const auto mask = std::byte{0xFF} >> (8 - bits_in_first_value_byte);
                 *first_value_byte &= mask;
                 *first_value_byte |= (bytes.front() >> left_shift) & ~mask;
             }
