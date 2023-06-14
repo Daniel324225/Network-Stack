@@ -5,14 +5,9 @@
 
 #include "packet.h"
 #include "tap.h"
+#include "network_device.h"
 
 int main() {
-    Tap tap{};
-    Tap tap2{};
-    std::byte buffer[100];
-    auto read = tap.read(buffer);
-
-    for (auto b : std::span(buffer).subspan(0, read)) {
-        std::cout << std::format("|{:0>2x}", int(b));
-    }
+    NetworkDevice dev{"00:0c:29:6d:50:25"_mac, "10.0.0.4"_ipv4, Tap{}};
+    dev.run();
 }

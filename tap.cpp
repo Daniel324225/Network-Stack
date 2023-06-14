@@ -38,7 +38,7 @@ std::expected<Tap, std::system_error> Tap::try_new() noexcept {
     if ((ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0) {
         close(fd);
         return std::unexpected{
-            std::system_error{errno, std::system_category(), "Could not ioctl tun"}
+            std::system_error{errno, std::system_category(), "Could not ioctl TUN device"}
         };
     }
 

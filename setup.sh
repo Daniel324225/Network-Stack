@@ -4,3 +4,4 @@ then
     sudo chmod 0666 /dev/net/tap
 fi
 sudo setcap cap_setpcap,cap_net_admin=ep "$(dirname $0)/TCP_IP"
+sudo sysctl -w net.ipv4.ip_forward=1

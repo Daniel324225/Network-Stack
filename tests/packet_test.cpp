@@ -1,11 +1,11 @@
-#include "gtest/gtest.h"
-#include "packet.h"
-#include "utils.h"
-
 #include <array>
 #include <ranges>
 #include <algorithm>
 #include <format>
+
+#include "gtest/gtest.h"
+#include "packet.h"
+#include "utils.h"
 
 constexpr std::byte operator""_b(unsigned long long b) {
     return static_cast<std::byte>(b);

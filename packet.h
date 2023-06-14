@@ -180,6 +180,14 @@ namespace packet {
             return ((fields.name == name) || ...);
         }
 
+        static constexpr std::size_t bit_size() {
+            return (fields.bit_length + ...);
+        }
+
+        static constexpr std::size_t byte_size() {
+            return utils::bits_to_bytes(bit_size());
+        }
+
         static constexpr std::size_t field_length(std::string_view name)
         {
             std::size_t length{};
