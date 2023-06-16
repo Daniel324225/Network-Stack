@@ -14,8 +14,8 @@ class NetworkDevice {
     Tap tap_device;
     Arp::Cache arp_cache;
 
-    void handle_arp_packet(std::span<const std::byte>);
-    void send(MAC_t destination, Ethertype ethertype, std::span<const std::byte> payload);
+    void handle(Arp::Packet<const std::byte> packet);
+    void send(MAC_t destination, Ethernet::Ethertype ethertype, std::span<const std::byte> payload);
 public:
     void run();
     NetworkDevice(MAC_t mac_address, IPv4_t ip_address, Tap tap_device) : mac_address{mac_address}, ip_address{ip_address}, tap_device{std::move(tap_device)} {}

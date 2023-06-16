@@ -14,8 +14,7 @@ constexpr std::byte operator""_b(unsigned long long b) {
 using packet::Format;
 using packet::Field;
 
-TEST(FormatGet, ByteAligned) 
-{
+TEST(FormatGet, ByteAligned) {
     std::array<unsigned char, 33> packet_array{};
     std::ranges::iota(
         packet_array,
@@ -43,8 +42,7 @@ TEST(FormatGet, ByteAligned)
     EXPECT_EQ(format::get<"g">(packet), (std::array{0x18_b, 0x19_b, 0x1A_b, 0x1B_b, 0x1C_b, 0x1D_b, 0x1E_b, 0x1F_b, 0x20_b, 0x21_b}));
 }
 
-TEST(FormatGet, ByteUnaligned) 
-{
+TEST(FormatGet, ByteUnaligned) {
     //                                                    5        7                    18                                              71                          4       5    2
     //                                                    a  |     b     |              c           |                                   d                       |   e    |  f  | g
     auto packet_array = std::to_array<unsigned char>({0b10001'101, 0b1101'1001, 0b10000001, 0b100001'11, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0b10001'101, 0b1'10001'11});
@@ -154,8 +152,7 @@ void test(
     EXPECT_EQ(format.template get<c>(packet), c_value) << std::format("Clearing field {} changes field {}\n", b.string, c.string);
 };
 
-TEST(FormatSet, ByteUnaligned) 
-{
+TEST(FormatSet, ByteUnaligned) {
     std::array<unsigned char, 41> packet_array{};
     auto packet = std::as_writable_bytes(std::span{packet_array});
 

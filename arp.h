@@ -5,18 +5,18 @@
 #include <cstddef>
 #include <span>
 #include <ranges>
+#include <iterator>
 
 #include "types.h"
 #include "packet.h"
 
-namespace Arp 
-{
+namespace Arp {
     struct Entry {
         IPv4_t ip_address;
         MAC_t mac_address;
     };
 
-    enum class OpCode: uint16_t {
+    enum OpCode: uint16_t {
         REQUEST = 1,
         REPLY = 2
     };
@@ -33,14 +33,23 @@ namespace Arp
         {"destination_ip", 32}
     >;
 
-    inline bool is_valid(std::span<const std::byte> packet) {
-        return 
-            packet.size() == Format::byte_size() && 
-            Format::get<"hardware_type">(packet) == 1 &&
-            Format::get<"protocol_type">(packet) == 0x0800 && 
-            Format::get<"hardware_size">(packet) == 6 &&
-            Format::get<"protocol_size">(packet) == 4;
-    }
+    template<typename Byte>
+    struct Packet : packet::Packet<Byte, Arp::Format>{
+        using packet::Packet<Byte, Arp::Format>::Packet;
+
+        bool is_valid() {
+            return 
+                this->bytes.size() == Arp::Format::byte_size() && 
+                this->template get<"hardware_type">() == 1 &&
+                this->template get<"protocol_type">() == 0x0800 && 
+                this->template get<"hardware_size">() == 6 &&
+                this->template get<"protocol_size">() == 4;
+        }
+    };
+
+    //P2582R1 not implemented
+    template<typename Range>
+    Packet(Range&& r) -> Packet<std::iter_value_t<decltype(std::ranges::begin(r))>>;
 
     class Cache {
         std::vector<Entry> cache;

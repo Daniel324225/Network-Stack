@@ -6,54 +6,58 @@
 #include "network_device.h"
 #include "ethernet.h"
 
-void NetworkDevice::handle_arp_packet(std::span<const std::byte> packet) {
-    if (!Arp::is_valid(packet)) {
+void NetworkDevice::handle(Arp::Packet<const std::byte> packet) {
+    if (not packet.is_valid()) {
         std::cout << "Invalid ARP packet\n";
         return;
     }
 
     Arp::Entry entry = {
-        Arp::Format::get<"source_ip">(packet),
-        Arp::Format::get<"source_mac">(packet)
+        packet.get<"source_ip">(),
+        packet.get<"source_mac">()
     };
 
     bool merge = arp_cache.update(entry);
 
-    if (ip_address == Arp::Format::get<"destination_ip">(packet)) {
+    if (ip_address == packet.get<"destination_ip">()) {
         if (!merge) {
             arp_cache.insert(entry);
         }
         
-        if (Arp::Format::get<"opcode">(packet) == static_cast<uint16_t>(Arp::OpCode::REQUEST)) {
-            std::byte reply[Arp::Format::byte_size()];
-            std::ranges::copy(packet, std::begin(reply));
+        if (packet.get<"opcode">() == Arp::REQUEST) {
+            std::array<std::byte, Arp::Format::byte_size()> reply_buffer;
+            std::ranges::copy(packet.bytes, std::begin(reply_buffer));
+
+            Arp::Packet reply(reply_buffer);
             
-            const auto source_mac =  Arp::Format::get<"source_mac">(packet);
-            const auto source_ip =  Arp::Format::get<"source_ip">(packet);
+            const auto source_mac = packet.get<"source_mac">();
+            const auto source_ip = packet.get<"source_ip">();
 
-            Arp::Format::set<"opcode">(reply, static_cast<uint16_t>(Arp::OpCode::REPLY));
-            Arp::Format::set<"destination_mac">(reply, source_mac);
-            Arp::Format::set<"destination_ip">(reply, source_ip);
-            Arp::Format::set<"source_mac">(reply, mac_address);
-            Arp::Format::set<"source_ip">(reply, ip_address);
+            reply.set<"opcode">(Arp::REPLY);
+            reply.set<"destination_mac">(source_mac);
+            reply.set<"destination_ip">(source_ip);
+            reply.set<"source_mac">(mac_address);
+            reply.set<"source_ip">(ip_address);
 
-            send(source_mac, Ethertype::ARP, reply);
+            send(source_mac, Ethernet::ARP, reply_buffer);
         }
     }
 }
 
 static constexpr std::size_t ethernet_max_size = 1522;
 
-void NetworkDevice::send(MAC_t destination, Ethertype ethertype, std::span<const std::byte> payload) {
-    std::byte buffer[ethernet_max_size];
+void NetworkDevice::send(MAC_t destination, Ethernet::Ethertype ethertype, std::span<const std::byte> payload) {
+    std::array<std::byte, ethernet_max_size> buffer;
 
-    EthernetHeader::set<"dmac">(buffer, destination);
-    EthernetHeader::set<"smac">(buffer, mac_address);
-    EthernetHeader::set<"ethertype">(buffer, static_cast<uint16_t>(ethertype));
+    Ethernet::Packet packet{buffer};
 
-    auto [_, last] = std::ranges::copy(payload, buffer + EthernetHeader::byte_size());
+    packet.set<"dmac">(destination);
+    packet.set<"smac">(mac_address);
+    packet.set<"ethertype">(ethertype);
 
-    tap_device.write({buffer, last});
+    auto [_, last] = std::ranges::copy(payload, packet.data().begin());
+
+    tap_device.write({packet.bytes.begin(), last});
 }
 
 void NetworkDevice::run() {
@@ -70,16 +74,16 @@ void NetworkDevice::run() {
             continue;
         }
 
-        auto data = std::span{buffer + EthernetHeader::byte_size(), buffer + read};
-        auto ethertype = EthernetHeader::get<"ethertype">(buffer);
+        Ethernet::Packet packet{std::span{buffer, buffer + read}};
 
-        switch (static_cast<Ethertype>(ethertype))
-        {
-        case Ethertype::ARP:
+        auto ethertype = packet.get<"ethertype">();
+
+        switch (ethertype) {
+        case Ethernet::ARP:
             std::cout << "ARP packet\n";
-            handle_arp_packet(data);
+            handle(packet.data<Arp::Packet>());
             break;
-        case Ethertype::IPv4:
+        case Ethernet::IPv4:
             std::cout << "IP packet\n";
             break;
         default:

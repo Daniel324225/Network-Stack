@@ -17,8 +17,7 @@
 
 namespace packet {
     template<std::size_t name_length>
-    struct Field 
-    {
+    struct Field {
         utils::StringLiteral<name_length> name;
         std::size_t bit_length;
     };
@@ -26,9 +25,8 @@ namespace packet {
     template<std::size_t N>
     Field(const char (&name)[N], std::size_t) -> Field<N>;
 
-    template <Field ...fields>
-    constexpr bool are_names_unique()
-    {
+    template<Field ...fields>
+    constexpr bool are_names_unique() {
         std::vector<std::string_view> names;
         
         (names.push_back(fields.name), ...);
@@ -39,8 +37,7 @@ namespace packet {
     }
 
     template<std::size_t first_bit, std::size_t bit_length>
-    auto get(std::span<const std::byte> bytes)
-    {
+    auto get(std::span<const std::byte, utils::bits_to_bytes(first_bit + bit_length)> bytes) {
         constexpr auto bit_end = (first_bit + bit_length) % 8;
 
         const auto field_bytes = [&]{
@@ -84,8 +81,7 @@ namespace packet {
     }
 
     template<std::size_t first_bit, std::size_t bit_length>
-    void set(std::span<std::byte> bytes, utils::leastN_t<bit_length> value)
-    {
+    void set(std::span<std::byte, utils::bits_to_bytes(first_bit + bit_length)> bytes, utils::leastN_t<bit_length> value) {
         using ExtendedValueType = utils::leastN_t<first_bit + bit_length>;
 
         constexpr auto bit_end = (first_bit + bit_length) % 8;
@@ -168,15 +164,12 @@ namespace packet {
     }
 
     template<Field ...fields>
-        requires 
-        (
+        requires (
             are_names_unique<fields...>() &&
             ((fields.bit_length >=1) && ...)
         )
-    struct Format
-    {
-        static constexpr bool contains(std::string_view name)
-        {
+    struct Format {
+        static constexpr bool contains(std::string_view name) {
             return ((fields.name == name) || ...);
         }
 
@@ -188,8 +181,7 @@ namespace packet {
             return utils::bits_to_bytes(bit_size());
         }
 
-        static constexpr std::size_t field_length(std::string_view name)
-        {
+        static constexpr std::size_t field_length(std::string_view name) {
             std::size_t length{};
             ([&]{
                 if (fields.name == name) {
@@ -200,8 +192,7 @@ namespace packet {
             return length;
         }
 
-        static constexpr std::size_t field_start(std::string_view name)
-        {
+        static constexpr std::size_t field_start(std::string_view name) {
             using pair = std::pair<std::string_view, std::size_t>;
 
             static constexpr std::array field_vec {
@@ -220,28 +211,55 @@ namespace packet {
 
         template<utils::StringLiteral name>
             requires (contains(name))
-        static utils::leastN_t<field_length(name)> get(std::span<const std::byte> bytes)
-        {
+        static utils::leastN_t<field_length(name)> get(std::span<const std::byte> bytes) {
             static constexpr auto bit_begin = field_start(name);
             static constexpr auto bit_length = field_length(name);
 
             const auto byte_begin = bit_begin / 8;
             const auto byte_length = utils::bits_to_bytes(bit_begin + bit_length) - byte_begin;
             
-            return ::packet::get<bit_begin % 8, bit_length>(bytes.subspan(byte_begin, byte_length));
+            return ::packet::get<bit_begin % 8, bit_length>(bytes.subspan<byte_begin, byte_length>());
         }
 
         template<utils::StringLiteral name>
             requires (contains(name))
-        static void set(std::span<std::byte> bytes, utils::leastN_t<field_length(name)> value)
-        {
+        static void set(std::span<std::byte> bytes, utils::leastN_t<field_length(name)> value) {
             static constexpr auto bit_begin = field_start(name);
             static constexpr auto bit_length = field_length(name);
 
             const auto byte_begin = bit_begin / 8;
             const auto byte_length = utils::bits_to_bytes(bit_begin + bit_length) - byte_begin;
             
-            ::packet::set<bit_begin % 8, bit_length>(bytes.subspan(byte_begin, byte_length), value);
+            ::packet::set<bit_begin % 8, bit_length>(bytes.subspan<byte_begin, byte_length>(), value);
         }
     };
+
+    template<typename Byte, typename Format>
+    struct Packet {
+        std::span<Byte> bytes;
+
+        Packet(std::span<Byte> bytes) : bytes{bytes} {}
+        
+        template<typename B>
+            requires (std::is_const_v<Byte> && std::same_as<B, std::remove_const_t<Byte>>)
+        Packet(Packet<B, Format> other) : bytes{other.bytes} {}
+
+        template<utils::StringLiteral name>
+        auto get() {
+            return Format::template get<name>(bytes);
+        }
+
+        template<utils::StringLiteral name>
+        void set(auto value) {
+            Format::template set<name>(bytes, value);
+        }
+
+        template<template<typename> typename T = std::span>
+        T<Byte> data() {
+            return bytes.subspan(Format::byte_size());
+        }
+    };
+
+    template<typename Range, typename Format>
+    Packet(Range&& r) -> Packet<std::iter_value_t<decltype(std::ranges::begin(r))>, Format>;
 }

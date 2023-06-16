@@ -4,27 +4,23 @@
 #include <algorithm>
 
 namespace utils {
-    template <std::size_t length>
-    struct StringLiteral
-    {
+    template<std::size_t length>
+    struct StringLiteral {
         char string[length]{};
 
-        constexpr StringLiteral(const char (&str)[length])
-        {
+        constexpr StringLiteral(const char (&str)[length]) {
             std::ranges::copy(
                 str,
                 string
             );
         }
 
-        constexpr operator std::string_view() const
-        {
+        constexpr operator std::string_view() const {
             return string;
         }
 
         template<std::size_t N>
-        constexpr bool operator==(const StringLiteral<N>& other) const
-        {
+        constexpr bool operator==(const StringLiteral<N>& other) const {
             return std::ranges::equal(string, other.string);
         }
     };
