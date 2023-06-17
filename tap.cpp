@@ -10,10 +10,9 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <linux/if_tun.h>
+#include <poll.h>
 
 #include "tap.h"
-#include <iostream>
-#include <format>
 
 Tap::Tap() {
     auto tap = try_new();
@@ -42,19 +41,18 @@ std::expected<Tap, std::system_error> Tap::try_new() noexcept {
         };
     }
 
-    std::cout << std::format("fd: {}, name: {}\n", fd, ifr.ifr_name);
-
-    return Tap{fd};
+    return Tap{fd, ifr.ifr_name};
 }
 
-Tap::Tap(int fd) : fd{fd} {}
+Tap::Tap(int fd, std::string name) : fd{fd}, name{name} {}
 
-Tap::Tap(Tap&& other) noexcept {
+Tap::Tap(Tap&& other) noexcept : name{std::move(other.name)} {
     fd = std::exchange(other.fd, -1);
 }
 
-Tap& Tap::operator=(Tap&& other) noexcept {
-    fd = std::exchange(other.fd, -1);
+Tap& Tap::operator=(Tap other) noexcept {
+    std::swap(fd, other.fd);
+    std::swap(name, other.name);
 
     return *this;
 }
@@ -70,5 +68,16 @@ std::make_signed_t<std::size_t> Tap::write(std::span<const std::byte> buffer) no
 }
 
 std::make_signed_t<std::size_t> Tap::read(std::span<std::byte> buffer) noexcept {
+    return ::read(fd, buffer.data(), buffer.size());
+}
+
+std::make_signed_t<std::size_t> Tap::try_read(std::span<std::byte> buffer, std::chrono::duration<int, std::milli> timeout) noexcept {
+    pollfd poll_fd{fd, POLLIN, 0};
+    if (auto result = poll(&poll_fd, 1, timeout.count()); result <= 0) {
+        return result;
+    }
+    if ((poll_fd.revents & POLLIN) == 0) {
+        return -1;
+    }
     return ::read(fd, buffer.data(), buffer.size());
 }

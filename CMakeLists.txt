@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project("TCP IP")
+project("Network Stack")
 
 add_library(compiler_options INTERFACE)
 target_compile_features(compiler_options INTERFACE cxx_std_23)
@@ -9,8 +9,8 @@ target_compile_options(compiler_options INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
-add_executable(TCP_IP main.cpp packet.h utils.h tap.cpp tap.h network_device.cpp network_device.h arp.h ethernet.h)
-target_link_libraries(TCP_IP PRIVATE compiler_options)
+add_executable(network_stack main.cpp packet.h utils.h tap.cpp tap.h network_device.cpp network_device.h arp.h ethernet.h)
+target_link_libraries(network_stack PRIVATE compiler_options)
 
 if (${CMAKE_HOST_LINUX})
   configure_file(

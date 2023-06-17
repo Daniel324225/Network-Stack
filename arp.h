@@ -10,7 +10,7 @@
 #include "types.h"
 #include "packet.h"
 
-namespace Arp {
+namespace arp {
     struct Entry {
         IPv4_t ip_address;
         MAC_t mac_address;
@@ -34,12 +34,12 @@ namespace Arp {
     >;
 
     template<typename Byte>
-    struct Packet : packet::Packet<Byte, Arp::Format>{
-        using packet::Packet<Byte, Arp::Format>::Packet;
+    struct Packet : packet::Packet<Byte, Format>{
+        using packet::Packet<Byte, Format>::Packet;
 
         bool is_valid() {
             return 
-                this->bytes.size() == Arp::Format::byte_size() && 
+                this->bytes.size() == Format::byte_size() && 
                 this->template get<"hardware_type">() == 1 &&
                 this->template get<"protocol_type">() == 0x0800 && 
                 this->template get<"hardware_size">() == 6 &&

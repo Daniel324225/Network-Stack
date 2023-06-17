@@ -4,7 +4,7 @@
 
 #include "packet.h"
 
-namespace Ethernet {
+namespace ethernet {
     enum Ethertype : uint16_t {
         ARP = 2054u,
         IPv4 = 2048u
