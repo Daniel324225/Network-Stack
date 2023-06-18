@@ -8,13 +8,14 @@
 
 #include "packet.h"
 #include "tap.h"
-#include "network_device.h"
+#include "internet_layer.h"
 
 static std::atomic_flag request_stop;
 
 int main(int argc, char* argv[]) {
     std::signal(SIGINT, [](int){
         request_stop.test_and_set();
+        request_stop.notify_all();
     });
 
     auto ip = parse_ipv4(argc > 1 ? argv[1] : "10.0.0.4");
@@ -36,6 +37,11 @@ int main(int argc, char* argv[]) {
     }
     std::cout << std::format("Created TAP device {}\n", tap_device->get_name());
 
-    NetworkDevice dev{*mac, *ip, std::move(*tap_device)};
-    dev.run(request_stop);
+    InternetLayer dev(*ip, {*mac, std::move(*tap_device)});
+
+    std::jthread thread([&](std::stop_token stop_token){
+        dev.run(stop_token);
+    });
+
+    request_stop.wait(false);
 }

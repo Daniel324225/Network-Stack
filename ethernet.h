@@ -11,11 +11,13 @@ namespace ethernet {
     };
 
     using Format = packet::Format<
-        {"dmac", 8*6},
-        {"smac", 8*6},
+        {"destination_mac", 8*6},
+        {"source_mac", 8*6},
         {"ethertype", 16}
     >;
 
     template<typename Byte>
     using Packet = packet::Packet<Byte, Format>;
+
+    inline constexpr std::size_t max_size = 1522;
 }
