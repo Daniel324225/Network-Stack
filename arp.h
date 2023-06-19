@@ -69,8 +69,6 @@ namespace arp {
             if (it != cache.end()) {
                 it->mac_address = entry.mac_address;
 
-                cache_updated.notify_all();
-
                 return true;
             }
             return false;
@@ -78,8 +76,6 @@ namespace arp {
 
         void insert(Entry entry) {
             cache.push_back(entry);
-
-            cache_updated.notify_all();
         }
     public:
         Handler() requires(std::derived_from<InternetLayer, Handler>) = default;
@@ -109,6 +105,7 @@ namespace arp {
             }
 
             lock.unlock();
+            cache_updated.notify_all();
             
             if (packet.get<"opcode">() == arp::REQUEST) {
                 arp::Packet<std::array<std::byte, arp::Format::byte_size()>> reply;
@@ -125,6 +122,9 @@ namespace arp {
 
                 internet_layer().send(source_mac, ethernet::ARP, reply.bytes);
             }
+        } else if (merge) {
+            lock.unlock();
+            cache_updated.notify_all();
         }
     }
 }
