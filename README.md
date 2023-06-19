@@ -11,11 +11,11 @@ Tested with gcc version 13.1.1
 $ cmake build
 $ cmake --build build
 $ ./build/setup.sh 
-$ ./build/network_stack 10.0.0.4
+$ ./build/network_stack 10.0.0.4 10.0.0.1
 Created TAP device tap0
 ```
 in another terminal:
 ```
-$ ./build/setup_dev.sh tap0
+$ ./build/setup_dev.sh tap0 10.0.0.1
 $ sudo arping -I tap0 10.0.0.4
 ```

@@ -5,6 +5,7 @@
 #include <string_view>
 #include <ranges>
 #include <charconv>
+#include <format>
 
 #include "utils.h"
 
@@ -13,6 +14,9 @@ using MAC_t = uint64_t;
 
 constexpr inline std::optional<IPv4_t> parse_ipv4(std::string_view);
 constexpr inline std::optional<MAC_t> parse_mac(std::string_view);
+
+inline std::string format_ipv4(IPv4_t ip);
+inline std::string format_mac(MAC_t mac);
 
 template<utils::StringLiteral string> requires (parse_ipv4(string).has_value())
 constexpr IPv4_t operator""_ipv4() {
@@ -60,4 +64,26 @@ constexpr inline std::optional<IPv4_t> parse_ipv4(std::string_view address) {
 }
 constexpr inline std::optional<MAC_t> parse_mac(std::string_view address) {
     return parse_delimited_bytes<MAC_t>(address, ':', 6, 16);
+}
+
+inline std::string format_ipv4(IPv4_t ip) {
+    return std::format(
+        "{}.{}.{}.{}", 
+        (ip >> 24), 
+        (ip >> 16) & 0xff,
+        (ip >> 8)  & 0xff,
+        (ip     )  & 0xff
+    );
+}
+
+inline std::string format_mac(MAC_t mac) {
+    return std::format(
+        "{:0>2X}:{:0>2X}:{:0>2X}:{:0>2X}:{:0>2X}:{:0>2X}", 
+        (mac >> 40) & 0xff, 
+        (mac >> 32) & 0xff, 
+        (mac >> 24) & 0xff, 
+        (mac >> 16) & 0xff,
+        (mac >> 8)  & 0xff,
+        (mac     )  & 0xff
+    );
 }

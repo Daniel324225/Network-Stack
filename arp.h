@@ -9,6 +9,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <concepts>
+#include <optional>
+#include <chrono>
 
 #include "types.h"
 #include "packet.h"
@@ -81,6 +83,7 @@ namespace arp {
         Handler() requires(std::derived_from<InternetLayer, Handler>) = default;
 
         void handle(arp::Packet<std::span<const std::byte>> packet);
+        std::optional<MAC_t> resolve(IPv4_t ip);
     };
 
     template<typename InternetLayer>
@@ -125,6 +128,46 @@ namespace arp {
         } else if (merge) {
             lock.unlock();
             cache_updated.notify_all();
+        }
+    }
+
+    template<typename InternetLayer>
+    std::optional<MAC_t> Handler<InternetLayer>::resolve(IPv4_t ip) {
+        std::unique_lock lock(mutex);
+
+        auto it = std::ranges::find(cache, ip, &Entry::ip_address);
+
+        if (it == cache.end()) {
+            insert({ip, ethernet::mac_broadcast});
+
+            Packet<std::array<std::byte, Format::byte_size()>> request;
+            request.set<"hardware_type">(1);
+            request.set<"protocol_type">(0x0800);
+            request.set<"hardware_size">(6);
+            request.set<"protocol_size">(4);
+            request.set<"opcode">(OpCode::REQUEST);
+            request.set<"source_mac">(internet_layer().get_mac());
+            request.set<"source_ip">(internet_layer().get_ip());
+            request.set<"destination_mac">(ethernet::mac_broadcast);
+            request.set<"destination_ip">(ip);
+
+            internet_layer().send(ethernet::mac_broadcast, ethernet::ARP, request.to_span());
+        } else if (it->mac_address != ethernet::mac_broadcast) {
+            return it->mac_address;
+        }
+
+        using namespace std::chrono_literals;
+
+        auto success = cache_updated.wait_for(lock, 1s, [&]{
+            it = std::ranges::find(cache, ip, &Entry::ip_address);
+            return (it != cache.end() && it->mac_address != ethernet::mac_broadcast);
+        });
+
+        if (success) {
+            return it->mac_address;
+        } else {
+            cache.erase(it);
+            return std::nullopt;
         }
     }
 }
