@@ -30,11 +30,9 @@ public:
     void run(std::stop_token stop_token);
 };
 
-template <typename Callable>
-void LinkLayer<Callable>::send(MAC_t destination, ethernet::Ethertype ethertype, std::span<const std::byte> payload) {
-    std::array<std::byte, ethernet::max_size> buffer;
-
-    ethernet::Packet packet{buffer};
+template <typename InternetLayer>
+void LinkLayer<InternetLayer>::send(MAC_t destination, ethernet::Ethertype ethertype, std::span<const std::byte> payload) {
+    ethernet::Packet<std::array<std::byte, ethernet::max_size>> packet;
 
     packet.set<"destination_mac">(destination);
     packet.set<"source_mac">(mac_address);
@@ -42,11 +40,11 @@ void LinkLayer<Callable>::send(MAC_t destination, ethernet::Ethertype ethertype,
 
     auto [_, last] = std::ranges::copy(payload, packet.data().begin());
 
-    tap_device.write({packet.bytes.begin(), last});
+    tap_device.write({packet.to_span().begin(), last});
 }
 
-template <typename Callable>
-void LinkLayer<Callable>::run(std::stop_token stop_token) {
+template <typename InternetLayer>
+void LinkLayer<InternetLayer>::run(std::stop_token stop_token) {
     std::byte buffer[ethernet::max_size];
 
     while (!stop_token.stop_requested()) {
@@ -64,7 +62,7 @@ void LinkLayer<Callable>::run(std::stop_token stop_token) {
 
         ethernet::Packet packet{std::span{buffer, buffer + read}};
 
-        if (auto destination = packet.get<"destination_mac">(); destination != mac_address && destination != 0xFFFFFFFFFFFF) {
+        if (auto destination = packet.get<"destination_mac">(); destination != mac_address && destination != ethernet::mac_broadcast) {
             continue;
         }
 

@@ -21,3 +21,4 @@ endmacro()
 
 add_test(packet)
 add_test(types)
+add_test(ipv4)

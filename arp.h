@@ -6,9 +6,13 @@
 #include <span>
 #include <ranges>
 #include <iterator>
+#include <mutex>
+#include <condition_variable>
+#include <concepts>
 
 #include "types.h"
 #include "packet.h"
+#include "ethernet.h"
 
 namespace arp {
     struct Entry {
@@ -33,11 +37,11 @@ namespace arp {
         {"destination_ip", 32}
     >;
 
-    template<typename Byte>
-    struct Packet : packet::Packet<Byte, Format>{
-        using packet::Packet<Byte, Format>::Packet;
+    template<typename Range>
+    struct Packet : packet::Packet<Range, Format>{
+        using packet::Packet<Range, Format>::Packet;
 
-        bool is_valid() {
+        bool is_valid() const {
             return 
                 this->bytes.size() == Format::byte_size() && 
                 this->template get<"hardware_type">() == 1 &&
@@ -47,18 +51,26 @@ namespace arp {
         }
     };
 
-    //P2582R1 not implemented
     template<typename Range>
-    Packet(Range&& r) -> Packet<std::iter_value_t<decltype(std::ranges::begin(r))>>;
+    Packet(Range&& r) -> Packet<Range>;
 
-    class Cache {
+    template<typename InternetLayer>
+    class Handler {
         std::vector<Entry> cache;
+        std::mutex mutex;
+        std::condition_variable cache_updated;
 
-    public:
+        InternetLayer& internet_layer() {
+            return static_cast<InternetLayer&>(*this);
+        }
+
         bool update(Entry entry) {
             auto it = std::ranges::find(cache, entry.ip_address, &Entry::ip_address);
             if (it != cache.end()) {
                 it->mac_address = entry.mac_address;
+
+                cache_updated.notify_all();
+
                 return true;
             }
             return false;
@@ -66,6 +78,53 @@ namespace arp {
 
         void insert(Entry entry) {
             cache.push_back(entry);
+
+            cache_updated.notify_all();
         }
+    public:
+        Handler() requires(std::derived_from<InternetLayer, Handler>) = default;
+
+        void handle(arp::Packet<std::span<const std::byte>> packet);
     };
+
+    template<typename InternetLayer>
+    void Handler<InternetLayer>::handle(arp::Packet<std::span<const std::byte>> packet){
+        if (!packet.is_valid()) {
+            std::cout << "Invalid ARP packet\n";
+            return;
+        }
+
+        arp::Entry entry = {
+            packet.get<"source_ip">(),
+            packet.get<"source_mac">()
+        };
+
+        std::unique_lock lock(mutex);
+
+        bool merge = update(entry);
+
+        if (internet_layer().get_ip() == packet.get<"destination_ip">()) {
+            if (!merge) {
+                insert(entry);
+            }
+
+            lock.unlock();
+            
+            if (packet.get<"opcode">() == arp::REQUEST) {
+                arp::Packet<std::array<std::byte, arp::Format::byte_size()>> reply;
+                std::ranges::copy(packet.bytes, std::begin(reply.bytes));
+                
+                const auto source_mac = packet.get<"source_mac">();
+                const auto source_ip = packet.get<"source_ip">();
+
+                reply.set<"opcode">(arp::REPLY);
+                reply.set<"destination_mac">(source_mac);
+                reply.set<"destination_ip">(source_ip);
+                reply.set<"source_mac">(internet_layer().get_mac());
+                reply.set<"source_ip">(internet_layer().get_ip());
+
+                internet_layer().send(source_mac, ethernet::ARP, reply.bytes);
+            }
+        }
+    }
 }

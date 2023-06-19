@@ -234,32 +234,66 @@ namespace packet {
         }
     };
 
-    template<typename Byte, typename Format>
+    template<std::ranges::contiguous_range Range_, typename Format_>
+        requires (std::same_as<std::remove_const_t<std::ranges::range_value_t<Range_>>, std::byte>)
     struct Packet {
-        std::span<Byte> bytes;
+        using Range = Range_;
+        using Format = Format_;
+        using ValueType = std::ranges::range_value_t<Range>;
+        using ConstValueType = std::add_const_t<ValueType>;
 
-        Packet(std::span<Byte> bytes) : bytes{bytes} {}
+        Range bytes;
+
+        Packet() = default;
+
+        template<std::convertible_to<Range> R>
+        Packet(R&& bytes) : bytes{std::forward<R>(bytes)} {}
         
-        template<typename B>
-            requires (std::is_const_v<Byte> && std::same_as<B, std::remove_const_t<Byte>>)
-        Packet(Packet<B, Format> other) : bytes{other.bytes} {}
+        template<typename P>
+            requires (
+                std::constructible_from<Range, typename P::Range> &&
+                std::same_as<typename P::Format, Format>
+            )
+        Packet(P&& other) : bytes{utils::forward_like<P>(other.bytes)} {}
 
         template<utils::StringLiteral name>
-        auto get() {
+        auto get() const {
             return Format::template get<name>(bytes);
         }
 
         template<utils::StringLiteral name>
-        void set(auto value) {
+            requires (!std::is_const_v<ValueType>)
+        void set(utils::leastN_t<Format::field_length(name)> value) {
             Format::template set<name>(bytes, value);
         }
 
-        template<template<typename> typename T = std::span>
-        T<Byte> data() {
-            return bytes.subspan(Format::byte_size());
+        std::span<ValueType> to_span(std::size_t offset = 0, std::size_t count = std::dynamic_extent) {
+            return std::span{bytes}.subspan(offset, count);
+        }
+
+        std::span<ConstValueType> to_span(std::size_t offset = 0, std::size_t count = std::dynamic_extent) const {
+            return std::span<ConstValueType>{bytes}.subspan(offset, count);
+        }
+
+        template<template<typename> typename T>
+        T<std::span<ValueType>> data() {
+            return to_span().subspan(Format::byte_size());
+        }
+
+        template<template<typename> typename T>
+        T<std::span<ConstValueType>> data() const {
+            return to_span().subspan(Format::byte_size());
+        }
+
+        std::span<ValueType> data() {
+            return to_span().subspan(Format::byte_size());
+        }
+
+        std::span<ConstValueType> data() const {
+            return to_span().subspan(Format::byte_size());
         }
     };
 
     template<typename Range, typename Format>
-    Packet(Range&& r) -> Packet<std::iter_value_t<decltype(std::ranges::begin(r))>, Format>;
+    Packet(Range&& r) -> Packet<Range, Format>;
 }
