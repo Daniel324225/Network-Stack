@@ -54,7 +54,7 @@ namespace arp {
     };
 
     template<typename Range>
-    Packet(Range&& r) -> Packet<Range>;
+    Packet(Range r) -> Packet<Range>;
 
     template<typename InternetLayer>
     class Handler {

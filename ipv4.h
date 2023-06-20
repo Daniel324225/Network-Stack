@@ -37,6 +37,9 @@ namespace ipv4 {
     };
 
     template<typename Range>
+    Packet(Range r) -> Packet<Range>;
+
+    template<typename Range>
     auto Packet<Range>::payload() -> std::span<typename Packet::ValueType> {
         return this->to_span(this->template get<"header_length">() * 4);
     }
@@ -89,7 +92,4 @@ namespace ipv4 {
 
         return ~checksum;
     }
-
-    template<typename Range>
-    Packet(Range&& r) -> Packet<Range>;
 }

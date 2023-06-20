@@ -295,5 +295,5 @@ namespace packet {
     };
 
     template<typename Range, typename Format>
-    Packet(Range&& r) -> Packet<Range, Format>;
+    Packet(Range r) -> Packet<Range, Format>;
 }
