@@ -6,7 +6,7 @@
 #include "types.h"
 
 namespace ethernet {
-    enum Ethertype : uint16_t {
+    enum class Ethertype : uint16_t {
         ARP = 2054u,
         IPv4 = 2048u
     };

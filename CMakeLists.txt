@@ -9,7 +9,7 @@ target_compile_options(compiler_options INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
 )
 
-add_executable(network_stack main.cpp packet.h utils.h tap.cpp tap.h internet_layer.h link_layer.h arp.h ethernet.h)
+add_executable(network_stack main.cpp packet.h utils.h tap.cpp tap.h ipv4.cpp ipv4.h internet_layer.h link_layer.h arp.h ethernet.h)
 target_link_libraries(network_stack PRIVATE compiler_options)
 
 if (${CMAKE_HOST_LINUX})

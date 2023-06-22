@@ -4,17 +4,30 @@
 #include <ranges>
 #include <bit>
 #include <numeric>
+#include <cstdint>
+#include <vector>
+#include <cstddef>
+#include <set>
+#include <map>
+#include <queue>
+#include <chrono>
+#include <utility>
+#include <limits>
+#include <optional>
 
 #include "packet.h"
+#include "types.h"
 
 namespace ipv4 {
     using Format = packet::Format<
         {"version", 4},
         {"header_length", 4},
         {"type_of_service", 8},
-        {"datagram_length", 16},
+        {"total_length", 16},
         {"id", 16},
-        {"flags", 3},
+        {"reserved", 1},
+        {"dont_fragment", 1},
+        {"more_fragments", 1},
         {"fragment_offset", 13},
         {"ttl", 8},
         {"protocol", 8},
@@ -39,14 +52,63 @@ namespace ipv4 {
     template<typename Range>
     Packet(Range r) -> Packet<Range>;
 
+    enum class Protocol : uint8_t {
+
+    };
+
+    struct Datagram {
+        IPv4_t source_address;
+        IPv4_t destination_address;
+        Protocol protocol;
+
+        std::vector<std::byte> data;
+    };
+
+    class Assembler {
+        using clock = std::chrono::steady_clock;
+
+        struct Key {
+            IPv4_t source_address;
+            IPv4_t destination_address;
+            Protocol protocol;
+            uint16_t id;
+
+            bool operator==(const Key&) const = default;
+            auto operator<=>(const Key&) const = default;
+        };
+
+        struct Value {
+            std::vector<std::byte> data;
+            std::size_t total_size = std::numeric_limits<std::size_t>::max();
+            std::size_t bytes_received{};
+            std::set<uint16_t> offsets_received;
+        };
+
+        std::map<Key, Value> datagrams;
+        std::queue<std::pair<clock::time_point, Key>> queue;
+
+        void remove_older_then(clock::duration);
+    
+    public:
+        std::optional<Datagram> assemble(Packet<std::span<const std::byte>> packet);
+    };
+
     template<typename Range>
     auto Packet<Range>::payload() -> std::span<typename Packet::ValueType> {
-        return this->to_span(this->template get<"header_length">() * 4);
+        auto header_length = this->template get<"header_length">() * 4;
+        return this->to_span(
+            header_length,
+            this->template get<"total_length">() - header_length
+        );
     }
 
     template<typename Range>
     auto Packet<Range>::payload() const -> std::span<typename Packet::ConstValueType> {
-        return this->to_span(this->template get<"header_length">() * 4);
+        auto header_length = this->template get<"header_length">() * 4;
+        return this->to_span(
+            header_length,
+            this->template get<"total_length">() - header_length
+        );
     }
 
     template<typename Range>

@@ -11,6 +11,7 @@
 #include <concepts>
 #include <optional>
 #include <chrono>
+#include <utility>
 
 #include "types.h"
 #include "packet.h"
@@ -22,7 +23,7 @@ namespace arp {
         MAC_t mac_address;
     };
 
-    enum OpCode: uint16_t {
+    enum class OpCode: uint16_t {
         REQUEST = 1,
         REPLY = 2
     };
@@ -110,20 +111,20 @@ namespace arp {
             lock.unlock();
             cache_updated.notify_all();
             
-            if (packet.get<"opcode">() == arp::REQUEST) {
+            if (packet.get<"opcode">() == std::to_underlying(arp::OpCode::REQUEST)) {
                 arp::Packet<std::array<std::byte, arp::Format::byte_size()>> reply;
                 std::ranges::copy(packet.bytes, std::begin(reply.bytes));
                 
                 const auto source_mac = packet.get<"source_mac">();
                 const auto source_ip = packet.get<"source_ip">();
 
-                reply.set<"opcode">(arp::REPLY);
+                reply.set<"opcode">(std::to_underlying(arp::OpCode::REPLY));
                 reply.set<"destination_mac">(source_mac);
                 reply.set<"destination_ip">(source_ip);
                 reply.set<"source_mac">(internet_layer().get_mac());
                 reply.set<"source_ip">(internet_layer().get_ip());
 
-                internet_layer().send(source_mac, ethernet::ARP, reply.bytes);
+                internet_layer().send(source_mac, ethernet::Ethertype::ARP, reply.bytes);
             }
         } else if (merge) {
             lock.unlock();
@@ -145,13 +146,13 @@ namespace arp {
             request.set<"protocol_type">(0x0800);
             request.set<"hardware_size">(6);
             request.set<"protocol_size">(4);
-            request.set<"opcode">(OpCode::REQUEST);
+            request.set<"opcode">(std::to_underlying(OpCode::REQUEST));
             request.set<"source_mac">(internet_layer().get_mac());
             request.set<"source_ip">(internet_layer().get_ip());
             request.set<"destination_mac">(ethernet::mac_broadcast);
             request.set<"destination_ip">(ip);
 
-            internet_layer().send(ethernet::mac_broadcast, ethernet::ARP, request.to_span());
+            internet_layer().send(ethernet::mac_broadcast, ethernet::Ethertype::ARP, request.to_span());
         } else if (it->mac_address != ethernet::mac_broadcast) {
             return it->mac_address;
         }

@@ -36,7 +36,7 @@ void LinkLayer<InternetLayer>::send(MAC_t destination, ethernet::Ethertype ether
 
     packet.set<"destination_mac">(destination);
     packet.set<"source_mac">(mac_address);
-    packet.set<"ethertype">(ethertype);
+    packet.set<"ethertype">(std::to_underlying(ethertype));
 
     auto [_, last] = std::ranges::copy(payload, packet.data().begin());
 
@@ -66,18 +66,18 @@ void LinkLayer<InternetLayer>::run(std::stop_token stop_token) {
             continue;
         }
 
-        auto ethertype = packet.get<"ethertype">();
+        auto ethertype = ethernet::Ethertype{packet.get<"ethertype">()};
 
         switch (ethertype) {
-        case ethernet::ARP:
+        case ethernet::Ethertype::ARP:
             std::cout << "ARP packet\n";
             internet_layer().handle(packet.data<arp::Packet>());
             break;
-        case ethernet::IPv4:
+        case ethernet::Ethertype::IPv4:
             std::cout << "IP packet\n";
             break;
         default:
-            std::cout << std::format("Unknown packet {:0>2X}\n", ethertype);
+            std::cout << std::format("Unknown packet {:0>2X}\n", std::to_underlying(ethertype));
             break;
         }
     }

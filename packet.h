@@ -211,7 +211,11 @@ namespace packet {
 
         template<utils::StringLiteral name>
             requires (contains(name))
-        static utils::leastN_t<field_length(name)> get(std::span<const std::byte> bytes) {
+        using field_type = typename utils::leastN_t<field_length(name)>;
+
+        template<utils::StringLiteral name>
+            requires (contains(name))
+        static field_type<name> get(std::span<const std::byte> bytes) {
             static constexpr auto bit_begin = field_start(name);
             static constexpr auto bit_length = field_length(name);
 
@@ -223,7 +227,7 @@ namespace packet {
 
         template<utils::StringLiteral name>
             requires (contains(name))
-        static void set(std::span<std::byte> bytes, utils::leastN_t<field_length(name)> value) {
+        static void set(std::span<std::byte> bytes, field_type<name> value) {
             static constexpr auto bit_begin = field_start(name);
             static constexpr auto bit_length = field_length(name);
 
@@ -235,11 +239,11 @@ namespace packet {
     };
 
     template<std::ranges::contiguous_range Range_, typename Format_>
-        requires (std::same_as<std::remove_const_t<std::ranges::range_value_t<Range_>>, std::byte>)
+        requires (std::same_as<std::ranges::range_value_t<Range_>, std::byte>)
     struct Packet {
         using Range = Range_;
         using Format = Format_;
-        using ValueType = std::ranges::range_value_t<Range>;
+        using ValueType = std::remove_reference_t<std::ranges::range_reference_t<Range>>;
         using ConstValueType = std::add_const_t<ValueType>;
 
         Range bytes;
@@ -251,19 +255,19 @@ namespace packet {
         
         template<typename P>
             requires (
-                std::constructible_from<Range, typename P::Range> &&
-                std::same_as<typename P::Format, Format>
+                std::constructible_from<Range, typename std::remove_reference_t<P>::Range> &&
+                std::same_as<Format, typename std::remove_reference_t<P>::Format>
             )
         Packet(P&& other) : bytes{utils::forward_like<P>(other.bytes)} {}
 
         template<utils::StringLiteral name>
-        auto get() const {
+        Format::template field_type<name> get() const {
             return Format::template get<name>(bytes);
         }
 
         template<utils::StringLiteral name>
             requires (!std::is_const_v<ValueType>)
-        void set(utils::leastN_t<Format::field_length(name)> value) {
+        void set(Format::template field_type<name> value) {
             Format::template set<name>(bytes, value);
         }
 
