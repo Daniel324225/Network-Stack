@@ -6,6 +6,7 @@
 #include "arp.h"
 #include "types.h"
 #include "link_layer.h"
+#include "channel.h"
 
 class InternetLayer : public LinkLayer<InternetLayer>, public arp::Handler<InternetLayer> {
     IPv4_t ip_address;
