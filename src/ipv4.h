@@ -53,7 +53,9 @@ namespace ipv4 {
     Packet(Range r) -> Packet<Range>;
 
     enum class Protocol : uint8_t {
-
+        ICMP = 0x01,
+        TCP = 0x06,
+        UDP = 0x11
     };
 
     struct Datagram {
@@ -90,7 +92,20 @@ namespace ipv4 {
         void remove_older_then(clock::duration);
     
     public:
-        std::optional<Datagram> assemble(Packet<std::span<const std::byte>> packet);
+        [[nodiscard]] std::optional<Datagram> assemble(Packet<std::span<const std::byte>> packet);
+    };
+
+    template<typename InternetLayer>
+    class Handler {
+        Assembler assembler;
+
+        InternetLayer& internet_layer() {
+            return static_cast<InternetLayer&>(*this);
+        }
+    public:
+        Handler() requires(std::derived_from<InternetLayer, Handler>) = default;
+
+        void handle(Packet<std::span<const std::byte>> packet);
     };
 
     template<typename Range>
@@ -153,5 +168,14 @@ namespace ipv4 {
         }
 
         return ~checksum;
+    }
+
+    template<typename LinkLayer>
+    void Handler<LinkLayer>::handle(Packet<std::span<const std::byte>> packet) {
+        auto datagram = assembler.assemble(packet);
+
+        if (datagram) {
+            internet_layer().handle(std::move(*datagram));
+        }
     }
 }

@@ -49,4 +49,5 @@ int main(int argc, char* argv[]) {
     });
 
     request_stop.wait(false);
+    std::cout << "\nTerminating\n";
 }

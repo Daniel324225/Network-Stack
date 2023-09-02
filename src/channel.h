@@ -1,3 +1,5 @@
+#pragma once
+
 #include <deque>
 #include <thread>
 #include <condition_variable>
@@ -11,10 +13,10 @@ class Channel {
     std::mutex mutex;
     std::condition_variable cv;
 public:
-    void push(T value);
+    bool push(T value);
     
     template <typename... U>
-    void emplace(U&&... args);
+    bool emplace(U&&... args);
 
     void close();
     
@@ -28,22 +30,32 @@ public:
 };
 
 template <typename T>
-void Channel<T>::push(T value) {
+bool Channel<T>::push(T value) {
     {
         std::lock_guard lock(mutex);
-        queue.push_back(std::move(value));
+        if (is_open) {
+            queue.push_back(std::move(value));
+        } else {
+            return false;
+        }
     }
     cv.notify_one();
+    return true;
 }
 
 template <typename T>
 template <typename... U>
-void Channel<T>::emplace(U&&... args) {
+bool Channel<T>::emplace(U&&... args) {
     {
         std::lock_guard lock(mutex);
-        queue.emplace_back(std::forward<U>(args)...);
+        if (is_open) {
+            queue.emplace_back(std::forward<U>(args)...);
+        } else {
+            return false;
+        }
     }
     cv.notify_one();
+    return true;
 }
 
 template <typename T>
@@ -63,7 +75,7 @@ std::optional<T> Channel<T>::pop() {
     if (queue.empty()) {
         return std::nullopt;
     } else {
-        auto value = std::move(queue.front());
+        std::optional<T> value = std::move(queue.front());
         queue.pop_front();
 
         return value;
@@ -73,7 +85,7 @@ std::optional<T> Channel<T>::pop() {
 template <typename T>
 class Channel<T>::InputIter {
     friend class Channel;
-    
+
     Channel& channel;
     std::optional<T> value;
 

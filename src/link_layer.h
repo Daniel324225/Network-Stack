@@ -8,6 +8,8 @@
 
 #include "types.h"
 #include "ethernet.h"
+#include "arp.h"
+#include "ipv4.h"
 #include "tap.h"
 
 template <typename InternetLayer>
@@ -45,7 +47,7 @@ void LinkLayer<InternetLayer>::send(MAC_t destination, ethernet::Ethertype ether
 
 template <typename InternetLayer>
 void LinkLayer<InternetLayer>::run(std::stop_token stop_token) {
-    std::byte buffer[ethernet::max_size];
+        std::byte buffer[ethernet::max_size];
 
     while (!stop_token.stop_requested()) {
         using namespace std::chrono_literals;
@@ -75,6 +77,7 @@ void LinkLayer<InternetLayer>::run(std::stop_token stop_token) {
             break;
         case ethernet::Ethertype::IPv4:
             std::cout << "IP packet\n";
+            internet_layer().handle(packet.data<ipv4::Packet>());
             break;
         default:
             std::cout << std::format("Unknown packet {:0>2X}\n", std::to_underlying(ethertype));

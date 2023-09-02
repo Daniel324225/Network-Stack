@@ -3,14 +3,17 @@
 #include <thread>
 #include <chrono>
 
-#include "arp.h"
 #include "types.h"
 #include "link_layer.h"
+#include "arp.h"
+#include "ipv4.h"
 #include "channel.h"
 
-class InternetLayer : public LinkLayer<InternetLayer>, public arp::Handler<InternetLayer> {
+class InternetLayer : public LinkLayer<InternetLayer>, public arp::Handler<InternetLayer>, public ipv4::Handler<InternetLayer> {
     IPv4_t ip_address;
     IPv4_t gateway;
+
+    Channel<ipv4::Datagram> datagrams;
 public:
     InternetLayer(IPv4_t ip_address, IPv4_t gateway, LinkLayer link_layer)
         : LinkLayer{std::move(link_layer)},
@@ -19,25 +22,34 @@ public:
         {}
 
     IPv4_t get_ip() {return ip_address;}
+
+    template<std::same_as<ipv4::Datagram> T>
+    void handle(T&& datagram) {
+        datagrams.emplace(std::forward<T>(datagram));
+    }
+    using arp::Handler<InternetLayer>::handle;
+    using ipv4::Handler<InternetLayer>::handle;
+
     void run(std::stop_token stop_token) {
         std::jthread link_thread([&]{
             LinkLayer::run(stop_token);
+            datagrams.close();
         });
         
         using namespace std::chrono_literals;
-        while (!stop_token.stop_requested())
-        {
+        using clock = std::chrono::system_clock;
+        while (false) {
             std::this_thread::sleep_for(5s);
             auto mac = resolve(gateway);
             if (mac.has_value()) {
-                std::cout << std::format("[{:%T}] IP {} is at MAC {}\n", std::chrono::system_clock::now(), format_ipv4(gateway), format_mac(*mac));
+                std::cout << std::format("[{:%T}] IP {} is at MAC {}\n", clock::now(), format_ipv4(gateway), format_mac(*mac));
                 break;
             } else {
-                std::cout << std::format("[{:%T}] Could not resolve IP {}\n", std::chrono::system_clock::now(), format_ipv4(gateway));
+                std::cout << std::format("[{:%T}] Could not resolve IP {}\n", clock::now(), format_ipv4(gateway));
             }
         }
-        while (!stop_token.stop_requested()) {
-            std::this_thread::sleep_for(1s);
+        for (auto datagram : datagrams) {
+            std::cout << std::format("[{:%T}] IPv4 datagram with protocol {:0>2x}\n", clock::now(), std::to_underlying(datagram.protocol));
         }
     }
 };
