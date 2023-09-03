@@ -19,6 +19,12 @@
 #include "types.h"
 
 namespace ipv4 {
+    enum class Protocol : uint8_t {
+        ICMP = 0x01,
+        TCP = 0x06,
+        UDP = 0x11
+    };
+
     using Format = packet::Format<
         {"version", 4},
         {"header_length", 4},
@@ -30,7 +36,7 @@ namespace ipv4 {
         {"more_fragments", 1},
         {"fragment_offset", 13},
         {"ttl", 8},
-        {"protocol", 8},
+        {"protocol", 8, packet::field_type<Protocol>},
         {"checksum", 16},
         {"source_address", 32},
         {"destination_address", 32}
@@ -51,12 +57,6 @@ namespace ipv4 {
 
     template<typename Range>
     Packet(Range r) -> Packet<Range>;
-
-    enum class Protocol : uint8_t {
-        ICMP = 0x01,
-        TCP = 0x06,
-        UDP = 0x11
-    };
 
     struct Datagram {
         IPv4_t source_address;

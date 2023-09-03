@@ -16,7 +16,7 @@ namespace ethernet {
     using Format = packet::Format<
         {"destination_mac", 8*6},
         {"source_mac", 8*6},
-        {"ethertype", 16}
+        {"ethertype", 16, packet::field_type<Ethertype>}
     >;
 
     template<typename Range>

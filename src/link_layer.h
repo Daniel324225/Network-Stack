@@ -38,7 +38,7 @@ void LinkLayer<InternetLayer>::send(MAC_t destination, ethernet::Ethertype ether
 
     packet.set<"destination_mac">(destination);
     packet.set<"source_mac">(mac_address);
-    packet.set<"ethertype">(std::to_underlying(ethertype));
+    packet.set<"ethertype">(ethertype);
 
     auto [_, last] = std::ranges::copy(payload, packet.data().begin());
 

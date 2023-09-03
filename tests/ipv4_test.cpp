@@ -40,7 +40,7 @@ TEST(IPv4, PacketReassembly) {
     );
 
     auto packet2_1 = packet1;
-    packet2_1.set<"protocol">(1);
+    packet2_1.set<"protocol">(ipv4::Protocol(1));
     auto packet2_2 = packet2_1;
 
     packet2_1.set<"total_length">(header_length + 16);

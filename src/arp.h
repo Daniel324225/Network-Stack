@@ -33,7 +33,7 @@ namespace arp {
         {"protocol_type", 16},
         {"hardware_size", 8},
         {"protocol_size", 8},
-        {"opcode", 16},
+        {"opcode", 16, packet::field_type<OpCode>},
         {"source_mac", 48},
         {"source_ip", 32},
         {"destination_mac", 48},
@@ -111,14 +111,14 @@ namespace arp {
             lock.unlock();
             cache_updated.notify_all();
             
-            if (packet.get<"opcode">() == std::to_underlying(arp::OpCode::REQUEST)) {
+            if (packet.get<"opcode">() == arp::OpCode::REQUEST) {
                 arp::Packet<std::array<std::byte, arp::Format::byte_size()>> reply;
                 std::ranges::copy(packet.bytes, std::begin(reply.bytes));
                 
                 const auto source_mac = packet.get<"source_mac">();
                 const auto source_ip = packet.get<"source_ip">();
 
-                reply.set<"opcode">(std::to_underlying(arp::OpCode::REPLY));
+                reply.set<"opcode">(arp::OpCode::REPLY);
                 reply.set<"destination_mac">(source_mac);
                 reply.set<"destination_ip">(source_ip);
                 reply.set<"source_mac">(internet_layer().get_mac());
@@ -146,7 +146,7 @@ namespace arp {
             request.set<"protocol_type">(0x0800);
             request.set<"hardware_size">(6);
             request.set<"protocol_size">(4);
-            request.set<"opcode">(std::to_underlying(OpCode::REQUEST));
+            request.set<"opcode">(OpCode::REQUEST);
             request.set<"source_mac">(internet_layer().get_mac());
             request.set<"source_ip">(internet_layer().get_ip());
             request.set<"destination_mac">(ethernet::mac_broadcast);
